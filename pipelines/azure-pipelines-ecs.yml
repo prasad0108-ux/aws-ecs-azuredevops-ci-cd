@@ -1,0 +1,35 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  AWS_REGION: ap-south-1
+  ECR_REPO: ecs-sample-app
+  ECS_CLUSTER: ecs-sample-cluster
+  ECS_SERVICE: ecs-sample-service
+
+steps:
+- checkout: self
+
+- task: Docker@2
+  displayName: "Build and Push Docker Image to ECR"
+  inputs:
+    containerRegistry: aws-ecs-connection
+    repository: $(ECR_REPO)
+    command: buildAndPush
+    dockerfile: docker/Dockerfile
+    tags: latest
+
+- task: AWSCLI@1
+  displayName: "Deploy to ECS"
+  inputs:
+    awsCredentials: aws-ecs-connection
+    regionName: $(AWS_REGION)
+    awsCommand: ecs
+    awsSubCommand: update-service
+    awsArguments: >
+      --cluster $(ECS_CLUSTER)
+      --service $(ECS_SERVICE)
+      --force-new-deployment
