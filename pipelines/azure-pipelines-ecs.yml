@@ -5,16 +5,16 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  AWS_REGION: ap-south-1
+  AWS_REGION: us-east-1
   ECR_REPO: ecs-sample-app
   ECS_CLUSTER: ecs-sample-cluster
-  ECS_SERVICE: ecs-sample-service
+  ECS_SERVICE: ecs-sample-app-service-0b82ybyb
 
 steps:
 - checkout: self
 
 - task: Docker@2
-  displayName: "Build and Push Docker Image to ECR"
+  displayName: Build and Push Docker Image to ECR
   inputs:
     containerRegistry: aws-ecs-connection
     repository: $(ECR_REPO)
@@ -23,7 +23,7 @@ steps:
     tags: latest
 
 - task: AWSCLI@1
-  displayName: "Deploy to ECS"
+  displayName: Deploy to ECS
   inputs:
     awsCredentials: aws-ecs-connection
     regionName: $(AWS_REGION)
