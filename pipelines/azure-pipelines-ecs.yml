@@ -14,30 +14,32 @@ variables:
 steps:
 - checkout: self
 
-# 🔐 Login to ECR + Build + Push (SAME SHELL)
-- script: |
-    set -e
-
-    echo "Logging in to ECR..."
-    aws ecr get-login-password --region $(AWS_REGION) \
-    | docker login --username AWS --password-stdin \
-      $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
-
-    echo "Building Docker image..."
-    docker build -t $(ECR_REPO):latest -f docker/Dockerfile .
-
-    echo "Tagging image..."
-    docker tag $(ECR_REPO):latest \
-      $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPO):latest
-
-    echo "Pushing image to ECR..."
-    docker push \
-      $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPO):latest
+# 🔐 Login to ECR + Build + Push (ALL INSIDE AWSCLI)
+- task: AWSCLI@1
   displayName: Build and Push Image to ECR
-  env:
-    AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-    AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-    AWS_DEFAULT_REGION: $(AWS_REGION)
+  inputs:
+    awsCredentials: aws-ecs-connection
+    regionName: $(AWS_REGION)
+    awsCommand: ecr
+    awsSubCommand: get-login-password
+    inlineScript: |
+      set -e
+
+      echo "Logging in to ECR"
+      aws ecr get-login-password --region $(AWS_REGION) \
+      | docker login --username AWS --password-stdin \
+        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+
+      echo "Building Docker image"
+      docker build -t $(ECR_REPO):latest -f docker/Dockerfile .
+
+      echo "Tagging image"
+      docker tag $(ECR_REPO):latest \
+        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPO):latest
+
+      echo "Pushing image to ECR"
+      docker push \
+        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPO):latest
 
 # 🔄 Deploy to ECS
 - task: AWSCLI@1
