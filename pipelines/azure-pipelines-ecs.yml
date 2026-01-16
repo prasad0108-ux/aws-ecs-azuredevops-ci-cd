@@ -6,6 +6,7 @@ pool:
 
 variables:
   AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: 593793022607
   ECR_REPO: ecs-sample-app
   ECS_CLUSTER: ecs-sample-cluster
   ECS_SERVICE: ecs-sample-app-service-0b82ybyb
@@ -13,19 +14,40 @@ variables:
 steps:
 - checkout: self
 
-# 🐳 Build & Push Docker Image to Amazon ECR
-- task: Docker@2
-  displayName: Build and Push Image to ECR
+# 🔐 Login to ECR using AWS CLI (TOKEN BASED – CORRECT WAY)
+- task: AWSCLI@1
+  displayName: Login to Amazon ECR
   inputs:
-    containerRegistry: ecr-docker-connection   # Docker service connection name
-    repository: $(ECR_REPO)
-    command: buildAndPush
-    Dockerfile: docker/Dockerfile
-    buildContext: .            # ✅ THIS FIXES THE COPY app/ ERROR
-    tags: |
-      latest
+    awsCredentials: aws-ecs-connection
+    regionName: $(AWS_REGION)
+    awsCommand: ecr
+    awsSubCommand: get-login-password
+    awsArguments: >
+      --region $(AWS_REGION)
+  name: ECRLogin
 
-# 🔄 Deploy to ECS (force new deployment)
+# 🐳 Build Docker image
+- script: |
+    docker build -t $(ECR_REPO):latest -f docker/Dockerfile .
+  displayName: Build Docker Image
+
+# 🏷️ Tag Docker image
+- script: |
+    docker tag $(ECR_REPO):latest \
+      $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPO):latest
+  displayName: Tag Docker Image
+
+# 🚀 Push image to ECR
+- script: |
+    aws ecr get-login-password --region $(AWS_REGION) \
+    | docker login --username AWS --password-stdin \
+      $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+
+    docker push \
+      $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPO):latest
+  displayName: Push Image to ECR
+
+# 🔄 Deploy to ECS
 - task: AWSCLI@1
   displayName: Deploy to ECS
   inputs:
