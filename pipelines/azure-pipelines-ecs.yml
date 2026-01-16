@@ -1,17 +1,72 @@
-Starting: Docker login to Amazon ECR
-==============================================================================
-Task         : Command line
-Description  : Run a command line script using Bash on Linux and macOS and cmd.exe on Windows
-Version      : 2.250.1
-Author       : Microsoft Corporation
-Help         : https://docs.microsoft.com/azure/devops/pipelines/tasks/utility/command-line
-==============================================================================
-Generating script.
-========================== Starting Command Output ===========================
-/usr/bin/bash --noprofile --norc /home/vsts/work/_temp/a84212bf-3e80-4dcd-a6ac-56ab33435921.sh
+trigger:
+- main
 
-Unable to locate credentials. You can configure credentials by running "aws login".
-Error: Cannot perform an interactive login from a non TTY device
+pool:
+  vmImage: ubuntu-latest
 
-##[error]Bash exited with code '1'.
-Finishing: Docker login to Amazon ECR
+variables:
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: 593793022607
+  ECR_REPO: ecs-sample-app
+  ECS_CLUSTER: ecs-sample-cluster
+  ECS_SERVICE: ecs-sample-app-service-0b82ybyb
+
+steps:
+- checkout: self
+
+# Login to ECR (AWS credentials available here)
+- task: AWSCLI@1
+  displayName: Login to Amazon ECR
+  inputs:
+    awsCredentials: aws-ecs-connection
+    regionName: $(AWS_REGION)
+    awsCommand: ecr
+    awsSubCommand: get-login-password
+    awsArguments: >
+      --region $(AWS_REGION)
+  env:
+    AWS_DEFAULT_REGION: $(AWS_REGION)
+
+# Docker login using output of previous command
+- task: AWSCLI@1
+  displayName: Docker login to ECR
+  inputs:
+    awsCredentials: aws-ecs-connection
+    regionName: $(AWS_REGION)
+    awsCommand: ecr
+    awsSubCommand: get-login-password
+    awsArguments: >
+      --region $(AWS_REGION)
+  script: |
+    aws ecr get-login-password --region $(AWS_REGION) |
+    docker login --username AWS --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+
+# Build image
+- script: |
+    docker build -t $(ECR_REPO):latest -f docker/Dockerfile .
+  displayName: Build Docker Image
+
+# Tag image
+- script: |
+    docker tag $(ECR_REPO):latest \
+    $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPO):latest
+  displayName: Tag Docker Image
+
+# Push image
+- script: |
+    docker push \
+    $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPO):latest
+  displayName: Push Image to ECR
+
+# Force ECS redeployment
+- task: AWSCLI@1
+  displayName: Deploy to ECS
+  inputs:
+    awsCredentials: aws-ecs-connection
+    regionName: $(AWS_REGION)
+    awsCommand: ecs
+    awsSubCommand: update-service
+    awsArguments: >
+      --cluster $(ECS_CLUSTER)
+      --service $(ECS_SERVICE)
+      --force-new-deployment
