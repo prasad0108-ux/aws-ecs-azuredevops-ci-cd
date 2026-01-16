@@ -21,7 +21,7 @@ steps:
     awsCredentials: aws-ecs-connection
     regionName: $(AWS_REGION)
     awsCommand: script
-    awsSubCommand: ''        # ✅ THIS WAS MISSING
+    awsSubCommand: script        # ✅ REQUIRED BY TASK VALIDATOR
     scriptType: inline
     inlineScript: |
       set -e
