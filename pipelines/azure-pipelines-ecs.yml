@@ -21,6 +21,7 @@ steps:
     awsCredentials: aws-ecs-connection
     regionName: $(AWS_REGION)
     awsCommand: script
+    awsSubCommand: ''        # ✅ THIS WAS MISSING
     scriptType: inline
     inlineScript: |
       set -e
