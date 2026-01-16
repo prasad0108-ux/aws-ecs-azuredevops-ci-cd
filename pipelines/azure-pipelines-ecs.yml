@@ -21,6 +21,7 @@ steps:
     repository: $(ECR_REPO)
     command: buildAndPush
     Dockerfile: docker/Dockerfile
+    buildContext: .            # ✅ THIS FIXES THE COPY app/ ERROR
     tags: |
       latest
 
