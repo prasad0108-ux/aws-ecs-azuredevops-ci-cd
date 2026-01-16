@@ -14,7 +14,7 @@ variables:
 steps:
 - checkout: self
 
-# AWS login + Docker login (credentials available)
+# 🔐 Login to ECR (AWS creds available here)
 - task: AWSCLI@1
   displayName: Login to Amazon ECR
   inputs:
@@ -22,31 +22,29 @@ steps:
     regionName: $(AWS_REGION)
     awsCommand: ecr
     awsSubCommand: get-login-password
+    inlineScript: |
+      aws ecr get-login-password --region $(AWS_REGION) \
+      | docker login --username AWS --password-stdin \
+        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
 
-- script: |
-    aws ecr get-login-password --region $(AWS_REGION) \
-    | docker login --username AWS --password-stdin \
-      $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
-  displayName: Docker login to ECR
-
-# Build Docker image
+# 🐳 Build Docker image
 - script: |
     docker build -t $(ECR_REPO):latest -f docker/Dockerfile .
   displayName: Build Docker Image
 
-# Tag Docker image
+# 🏷️ Tag Docker image
 - script: |
     docker tag $(ECR_REPO):latest \
     $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPO):latest
   displayName: Tag Docker Image
 
-# Push image to ECR
+# 🚀 Push image to ECR
 - script: |
     docker push \
     $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPO):latest
   displayName: Push Image to ECR
 
-# Deploy to ECS
+# 🔄 Deploy to ECS
 - task: AWSCLI@1
   displayName: Deploy to ECS
   inputs:
