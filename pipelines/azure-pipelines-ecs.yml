@@ -14,14 +14,12 @@ variables:
 steps:
 - checkout: self
 
-# 🔐 Login to ECR + Build + Push (ALL INSIDE AWSCLI)
+# 🔐 Login + Build + Push (ALL RUNS NOW)
 - task: AWSCLI@1
   displayName: Build and Push Image to ECR
   inputs:
     awsCredentials: aws-ecs-connection
     regionName: $(AWS_REGION)
-    awsCommand: ecr
-    awsSubCommand: get-login-password
     inlineScript: |
       set -e
 
